@@ -16,6 +16,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub ${AWS::StackName}
+      GroupDescription: "SG to allow HTTP requests from the world"
       SecurityGroupIngress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -26,6 +27,7 @@ Resources:
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
+      VpcId: !ImportValue VPC
   
   DefaultLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -33,9 +35,9 @@ Resources:
       DefaultActions:
         - Type: forward
           TargetGroupArn:
-            - !Ref DefaultTargetGroup
+            !Ref DefaultTargetGroup
       LoadBalancerArn:
-       - !Ref BooksApiLoadBalancer
+       !Ref BooksApiLoadBalancer
       Port: 80
       Protocol: HTTP
   
