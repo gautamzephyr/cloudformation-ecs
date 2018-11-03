@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Roles and Policies for ECS
+
+Resources:
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: 
+              Service: [ecs-tasks.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      Path: "/"
+      Policies:
+      - PolicyName: ECSTaskExecutionRolePolicy
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+                # Download Images from ECR
+                - "ecr:GetAuthorizationToken"
+                - "ecr:GetDownloadUrlForLayer"
+                - "ecr:BatchGetImage"
+                - "ecr:BatchCheckLayerAvailability"
+                - "ecr:PutImage"
+                - "ecr:InitiateLayerUpload"
+                - "ecr:UploadLayerPart"
+                - "ecr:CompleteLayerUpload"
+                # Upload logs to CloudWatch
+                - "logs:CreateLogStream"
+                - "logs:PutLogEvents"
+              Resource: '*'
+
+Outputs:
+  ECSTaskExecutionRole:
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: ECSTaskExecutionRole
