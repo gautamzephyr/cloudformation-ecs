@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: LoadBalancer for ECS Cluster
+
+Resources: 
+  BooksApiLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: books-api
+      SecurityGroups:
+       - !Ref LoadBalancerSG
+      Subnets:
+       - !ImportValue SubnetAZ1Public
+       - !ImportValue SubnetAZ2Public
+  
+  LoadBalancerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+  
+  DefaultLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            - !Ref DefaultTargetGroup
+      LoadBalancerArn:
+       - !Ref BooksApiLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-default-target
+      Port: 80
+      Protocol: HTTP
+      VpcId: !ImportValue VPC
+
+Outputs:
+  BooksApiLoadBalancer:
+    Value: !GetAtt BooksApiLoadBalancer.DNSName
+    Export:
+      Name: BooksApiDomainName
+  
+  LoadBalancerSG:
+    Value: !Ref LoadBalancerSG
+    Export:
+      Name: LoadBalancerSG
+
+  DefaultLoadBalancerListener:
+    Value: !Ref DefaultLoadBalancerListener
+    Export:
+      Name: DefaultLoadBalancerListener
