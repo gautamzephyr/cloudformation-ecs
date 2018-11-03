@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Books API ECR Repository
+
+Parameters:
+  AssumedRole:
+    Type: String
+    Default: Dev
+
+Resources:
+  BooksApiEcrRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${AWS::StackName}
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+            -
+              Sid: AllowPushPull
+              Effect: Allow
+              Principal:
+                AWS:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/${AssumedRole}
+              Action:
+                - "ecr:GetDownloadUrlForLayer"
+                - "ecr:BatchGetImage"
+                - "ecr:BatchCheckLayerAvailability"
+                - "ecr:PutImage"
+                - "ecr:InitiateLayerUpload"
+                - "ecr:UploadLayerPart"
+                - "ecr:CompleteLayerUpload"
+
+Outputs:
+  RepositoryARN:
+    Value: !GetAtt "BooksApiEcrRepo.Arn"
+    Export:
+        Name: 'BooksApiRepoArn'
+  RepositoryURI:
+    Value: !Join [ ".", [ !Ref "AWS::AccountId", "dkr.ecr", !Ref "AWS::Region", !Join [ "/", [ "amazonaws.com", !Ref "AWS::StackName" ] ] ] ]
+    Export:
+        Name: "BooksApiRepoURI"
