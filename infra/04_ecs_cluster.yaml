@@ -78,6 +78,9 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 10
       TargetType: ip
+      TargetGroupAttributes:
+       - Key: deregistration_delay.timeout_seconds
+         Value: 10
 
   WebListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
