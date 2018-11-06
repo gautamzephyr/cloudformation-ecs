@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Definition for ECS Cluster
+
+Resources: 
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: BooksApiLogs
+      RetentionInDays: 1
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !ImportValue VPC
+      GroupDescription: Allow incoming requests from ALB
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !ImportValue LoadBalancerSG
+          IpProtocol: -1
+    
+  BooksApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: 256
+      ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
+      Family: BooksApi
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        -
+          Name: BooksApi
+          Image: !Join [ ":", [ !ImportValue BooksApiRepoURI, "latest" ] ]
+          PortMappings:
+            -
+              ContainerPort: 4567
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: booksapi
+    
+  BooksApiECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref BooksApiECSCluster
+      DesiredCount: 2
+      LaunchType: FARGATE
+      LoadBalancers:
+       - ContainerName: BooksApi
+         ContainerPort: 4567
+         TargetGroupArn: !Ref BooksApiTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ContainerSecurityGroup
+          Subnets:
+            - !ImportValue SubnetAZ1Private
+            - !ImportValue SubnetAZ2Private
+      ServiceName: BooksApi
+      TaskDefinition: !Ref BooksApiTaskDefinition
+  
+  BooksApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-target
+      Port: 80
+      Protocol: HTTP
+      VpcId: !ImportValue VPC
+      Matcher:
+        HttpCode: 200-299
+      TargetType: ip
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /stat
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 10
+      TargetType: ip
+
+  WebListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !ImportValue DefaultLoadBalancerListener
+      Priority: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /*
+      Actions:
+        - TargetGroupArn: !Ref BooksApiTargetGroup
+          Type: forward
+
+  BooksApiECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: BooksApiECSCluster
+# Outputs:
