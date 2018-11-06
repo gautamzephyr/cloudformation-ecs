@@ -11,6 +11,7 @@ Resources:
       Subnets:
        - !ImportValue SubnetAZ1Public
        - !ImportValue SubnetAZ2Public
+
   
   LoadBalancerSG:
     Type: AWS::EC2::SecurityGroup
@@ -18,11 +19,6 @@ Resources:
       GroupName: !Sub ${AWS::StackName}
       GroupDescription: "SG to allow HTTP requests from the world"
       SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-      SecurityGroupEgress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
           FromPort: 80
@@ -48,10 +44,13 @@ Resources:
       Port: 80
       Protocol: HTTP
       VpcId: !ImportValue VPC
+      TargetGroupAttributes:
+       - Key: deregistration_delay.timeout_seconds
+         Value: 10
 
 Outputs:
   BooksApiLoadBalancer:
-    Value: !GetAtt BooksApiLoadBalancer.DNSName
+    Value: !Ref BooksApiLoadBalancer
     Export:
       Name: BooksApiDomainName
   
