@@ -1,5 +1,6 @@
 require 'sinatra'
 require "sinatra/namespace"
+require 'socket'
 
 class Book
     @@books = [
@@ -18,11 +19,11 @@ class Book
 end
 
 get '/' do
-    'Healthy!!!'
+    'Healthy via ' + Socket.gethostname
 end
 
 get '/stat' do
-    'Healthy!!!'
+    'Healthy via ' + Socket.gethostname
 end
 
 namespace '/api' do
