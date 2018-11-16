@@ -36,4 +36,4 @@ Outputs:
   ECSTaskExecutionRole:
     Value: !GetAtt ECSTaskExecutionRole.Arn
     Export:
-      Name: ECSTaskExecutionRole
+      Name: BooksApiECSTaskExecutionRole

@@ -21,7 +21,7 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Cpu: 256
-      ExecutionRoleArn: !ImportValue ECSTaskExecutionRole
+      ExecutionRoleArn: !ImportValue BooksApiECSTaskExecutionRole
       Family: BooksApi
       Memory: 512
       NetworkMode: awsvpc
