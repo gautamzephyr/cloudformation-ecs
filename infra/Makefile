@@ -14,3 +14,5 @@ loadbalancer:
 	aws cloudformation create-stack --stack-name books-api-lb --template-body file://03_loadbalancer.yaml --tags Key=owner,Value=sameer Key=service,Value=ecr --profile $(AWS_PROFILE)
 cluster:
 	aws cloudformation create-stack --stack-name books-api-cluster --template-body file://04_ecs_cluster.yaml --tags Key=owner,Value=sameer Key=service,Value=ecr --profile $(AWS_PROFILE)
+pipeline:
+	aws cloudformation create-stack --stack-name books-api-pipeline --template-body file://05_pipeline.yaml --tags Key=owner,Value=sameer Key=service,Value=ecr --profile $(AWS_PROFILE) --capabilities CAPABILITY_NAMED_IAM	
