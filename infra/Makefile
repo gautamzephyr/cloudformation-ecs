@@ -1,4 +1,4 @@
-AWS_PROFILE:=team0workermgmt
+AWS_PROFILE:=team0infra
 
 ecr:
 	aws cloudformation create-stack --stack-name books-api --template-body file://01_ecr.yaml --tags Key=owner,Value=sameer Key=service,Value=ecr --parameters file://parameters.json --profile $(AWS_PROFILE)
