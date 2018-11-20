@@ -9,8 +9,8 @@ Resources:
       SecurityGroups:
        - !Ref LoadBalancerSG
       Subnets:
-       - !ImportValue SubnetAZ1Public
-       - !ImportValue SubnetAZ2Public
+       - !ImportValue sputnik:SubnetAZ1Public
+       - !ImportValue sputnik:SubnetAZ2Public
 
   
   LoadBalancerSG:
@@ -23,7 +23,7 @@ Resources:
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-      VpcId: !ImportValue VPC
+      VpcId: !ImportValue sputnik:VPC
   
   DefaultLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -43,7 +43,7 @@ Resources:
       Name: !Sub ${AWS::StackName}-default-target
       Port: 80
       Protocol: HTTP
-      VpcId: !ImportValue VPC
+      VpcId: !ImportValue sputnik:VPC
       TargetGroupAttributes:
        - Key: deregistration_delay.timeout_seconds
          Value: 10
