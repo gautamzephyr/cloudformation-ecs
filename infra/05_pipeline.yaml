@@ -99,7 +99,32 @@ Resources:
                   - Name: BuildOutput
                 Configuration:
                   ProjectName: !Ref CodeBuildProject
-  
+          
+          - Name: QA-Approval
+            Actions:
+              - Name: Approve
+                ActionTypeId:
+                  Category: Approval
+                  Owner: AWS
+                  Version: "1"
+                  Provider: Manual
+          - Name: CloudFormationDeploy
+            Actions:
+              - Name: Deploy
+                InputArtifacts:
+                  - Name: BuildOutput
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Version: '1'
+                  Provider: CloudFormation
+                Configuration:
+                  StackName: books-api-cluster
+                  ActionMode: CREATE_UPDATE
+                  Capabilities: CAPABILITY_NAMED_IAM
+                  TemplatePath: Source::infra/04_ecs_cluster.yaml
+                  TemplateConfiguration: BuildOutput::parameters.json
+
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -123,13 +148,14 @@ Resources:
                 - docker build --tag "${REPOSITORY_URI}:${TAG}" ./app
                 - echo "Pushing ${REPOSITORY_URI}:${TAG}"
                 - docker push "${REPOSITORY_URI}:${TAG}"
-            # post_build:
-            #   commands:
+            post_build:
+              commands:
+                - printf '{"Parameters":{"ImageTag":"%s"}}' $TAG > parameters.json 
                 
-          # artifacts:
-          #   files:
-          #     - Infrastructure/04_VPC/vpc-master.yaml
-          #   discard-paths: yes
+          artifacts:
+            files:
+              - parameters.json
+            discard-paths: yes
 
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
