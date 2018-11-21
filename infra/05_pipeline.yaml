@@ -12,8 +12,9 @@ Parameters:
     Type: String
     Default: sameergautam
   GitHubToken:
-    Type: String
-    Default: xxxx
+    Description: Name of Parameter Store parameter that stores the GitHubToken
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/sameer/cloudformation-ecs/githubtoken'
 
 Resources:
   CodePipelineRole:
