@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CodePipeline for ECS
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: cloudformation-ecs
+  GitHubBranch:
+    Type: String
+    Default: master
+  GitHubUsername:
+    Type: String
+    Default: sameergautam
+  GitHubToken:
+    Description: Name of Parameter Store parameter that stores the GitHubToken
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/sameer/cloudformation-ecs/githubtoken'
+
+Resources:
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Join ['', ['arn:aws:s3:::', !ImportValue BucketCodePipeline, '/*']]
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: '*'
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:CreateStack
+                  - cloudformation:CreateUploadBucket
+                  - cloudformation:DeleteStack
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                  - cloudformation:UpdateStack
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:ExecuteChangeSet
+                Resource: '*'
+  
+  Pipeline:
+      Type: AWS::CodePipeline::Pipeline
+      Properties:
+        RoleArn: !GetAtt CodePipelineRole.Arn
+        ArtifactStore:
+          Type: S3
+          Location: !ImportValue BucketCodePipeline
+        Stages:
+          - Name: Source
+            Actions:
+              - Name: InfraSource
+                ActionTypeId:
+                  Category: Source
+                  Owner: ThirdParty
+                  Version: "1"
+                  Provider: GitHub
+                Configuration:
+                  Owner: !Ref GitHubUsername
+                  Repo: !Ref GitHubRepo
+                  Branch: !Ref GitHubBranch
+                  OAuthToken: !Ref GitHubToken
+                OutputArtifacts:
+                  - Name: Source
+
+          - Name: ImageBuild
+            Actions:
+              - Name: ECRImageBuild
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: '1'
+                  Provider: CodeBuild
+                InputArtifacts:
+                  - Name: Source
+                OutputArtifacts:
+                  - Name: BuildOutput
+                Configuration:
+                  ProjectName: !Ref CodeBuildProject
+          
+          - Name: QA-Approval
+            Actions:
+              - Name: Approve
+                ActionTypeId:
+                  Category: Approval
+                  Owner: AWS
+                  Version: "1"
+                  Provider: Manual
+          - Name: CloudFormationDeploy
+            Actions:
+              - Name: Deploy
+                InputArtifacts:
+                  - Name: BuildOutput
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Version: '1'
+                  Provider: CloudFormation
+                Configuration:
+                  StackName: books-api-cluster
+                  ActionMode: CREATE_UPDATE
+                  Capabilities: CAPABILITY_NAMED_IAM
+                  TemplatePath: Source::infra/04_ecs_cluster.yaml
+                  TemplateConfiguration: BuildOutput::parameters.json
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo "CODEBUILD_RESOLVED_SOURCE_VERSION is ${CODEBUILD_RESOLVED_SOURCE_VERSION}"
+                - $(aws ecr get-login --no-include-email)
+                - TAG="$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+                - echo "Current TAG is ${TAG}"
+            build:
+              commands:
+                - echo "Making Docker Image"
+                - echo "Building ${REPOSITORY_URI}:${TAG}"
+                - docker build --tag "${REPOSITORY_URI}:${TAG}" ./app
+                - echo "Pushing ${REPOSITORY_URI}:${TAG}"
+                - docker push "${REPOSITORY_URI}:${TAG}"
+            post_build:
+              commands:
+                - printf '{"Parameters":{"ImageTag":"%s"}}' $TAG > parameters.json 
+                
+          artifacts:
+            files:
+              - parameters.json
+            discard-paths: yes
+
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/docker:17.09.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: REPOSITORY_URI
+            Value: !ImportValue BooksApiRepoURI
+      Name: !Ref AWS::StackName
+      ServiceRole: !Ref CodeBuildIAMRole
+  
+  CodeBuildIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-', [!Ref 'AWS::StackName', 'CodeBuild']]
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - codebuild.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyName: !Join ['-', [!Ref 'AWS::StackName', 'CodeBuildRolePolicy']]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                  # - codecommit:*
+                  - s3:*
+                  - ecr:*
+                Resource: '*'
+# Outputs:
+  

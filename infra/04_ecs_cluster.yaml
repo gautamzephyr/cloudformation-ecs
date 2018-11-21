@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Definition for ECS Cluster
 
+Parameters:
+  ImageTag:
+    Type: String
+    Default: latest
+
 Resources: 
   CloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
@@ -30,7 +35,7 @@ Resources:
       ContainerDefinitions:
         -
           Name: BooksApi
-          Image: !Join [ ":", [ !ImportValue BooksApiRepoURI, "latest" ] ]
+          Image: !Join [ ":", [ !ImportValue BooksApiRepoURI, !Ref ImageTag ] ]
           PortMappings:
             -
               ContainerPort: 4567
