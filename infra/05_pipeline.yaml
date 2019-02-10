@@ -61,6 +61,58 @@ Resources:
                   - cloudformation:ExecuteChangeSet
                 Resource: '*'
   
+  CloudFormationIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-', [!Ref 'AWS::StackName', 'CloudFormation']]
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cloudformation.amazonaws.com
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - iam:CreateRole
+            - iam:AttachRolePolicy
+            - iam:PutRolePolicy
+            - iam:PassRole
+            - iam:DetachRolePolicy
+            - iam:ListRolePolicies
+            - iam:GetRole
+            - iam:DeleteRolePolicy
+            - iam:UpdateRoleDescription
+            - iam:ListRoles
+            - iam:DeleteRole
+            - iam:GetRolePolicy
+            - iam:CreateInstanceProfile
+            - iam:AddRoleToInstanceProfile
+            - iam:DeleteInstanceProfile
+            - iam:GetInstanceProfile
+            - iam:ListInstanceProfiles
+            - iam:ListInstanceProfilesForRole
+            - iam:RemoveRoleFromInstanceProfile
+            Effect: Allow
+            Resource:
+            - !Sub "arn:aws:iam::*:role/${AWS::StackName}*"
+            - !Sub "arn:aws:iam::*:instance-profile/${AWS::StackName}*"
+          - Action:
+            - ssm:GetParameters
+            - s3:*
+            - ecs:*
+            - logs:*
+            - elasticloadbalancing:*
+            Effect: Allow
+            Resource: '*'
+          - Resource: "*"
+            Effect: Allow
+            Action:
+            - iam:PassRole
+        PolicyName: !Join ['-', [!Ref 'AWS::StackName', 'CloudFormationRolePolicy']]
   Pipeline:
       Type: AWS::CodePipeline::Pipeline
       Properties:
@@ -122,8 +174,9 @@ Resources:
                   StackName: books-api-cluster
                   ActionMode: CREATE_UPDATE
                   Capabilities: CAPABILITY_NAMED_IAM
-                  TemplatePath: Source::infra/04_ecs_cluster.yaml
-                  TemplateConfiguration: BuildOutput::parameters.json
+                  TemplatePath: BuildOutput::04_ecs_cluster.yaml
+                  TemplateConfiguration: BuildOutput::parameters_image.json
+                  RoleArn: !GetAtt CloudFormationIAMRole.Arn
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -150,11 +203,12 @@ Resources:
                 - docker push "${REPOSITORY_URI}:${TAG}"
             post_build:
               commands:
-                - printf '{"Parameters":{"ImageTag":"%s"}}' $TAG > parameters.json 
+                - printf '{"Parameters":{"ImageTag":"%s"}}' $TAG > parameters_image.json 
                 
           artifacts:
             files:
-              - parameters.json
+              - parameters_image.json
+              - infra/**/*
             discard-paths: yes
 
       Environment:
